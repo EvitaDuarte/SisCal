@@ -1,0 +1,65 @@
+- Calendarizar el archivo del SIGA 
+- Quitar 
+	capítulo 1000
+	Líneas con todos los importes positivos
+	Líneas donde el importe total de enero a diciembre sea negativo
+- Neteo (Falsos Positivos )
+	Seleccionar un mes ( debe ser par ?? )
+	Tomar enero febrero - quitar los importes donde la suma sea cero
+	Luego tomar enero-febrero-marzo y volver a quitar los neteados
+	Y así hasta llegar al mes seleccionado
+- Matar Negativos
+- Generar ampliaciones y reducciones
+
+
+
+____________________________
+
+[0]
+{
+    "clave": "INE-AG00-11510-00000-001-M001-001-B00OD01-24601",
+    "importe_01": 0,
+    "importe_02": 493.33,
+    "importe_03": -493.33,
+    "importe_04": 0,
+    "importe_05": 0,
+    "importe_06": 0,
+    "importe_07": 0,
+    "importe_08": 0,
+    "importe_09": 0,
+    "importe_10": 3800,
+    "importe_11": 0,
+    "importe_12": 0
+}
+[1]
+{
+    "clave": "INE-AG00-51316-00000-001-R009-067-B00OD02-31602",
+    "importe_01": 1973,
+    "importe_02": -1973,
+    "importe_03": 0,
+    "importe_04": 0,
+    "importe_05": 0,
+    "importe_06": 0,
+    "importe_07": 1973,
+    "importe_08": 1973,
+    "importe_09": 1973,
+    "importe_10": 0,
+    "importe_11": 0,
+    "importe_12": 0
+}
+[2]
+{
+    "clave": "INE-AG00-51317-00000-001-R011-021-B09PC01-31701",
+    "importe_01": 0,
+    "importe_02": 0,
+    "importe_03": 0,
+    "importe_04": 75.82,
+    "importe_05": -75.82,
+    "importe_06": 6452.83,
+    "importe_07": 0,
+    "importe_08": 0,
+    "importe_09": 0,
+    "importe_10": 0,
+    "importe_11": 0,
+    "importe_12": 0
+}

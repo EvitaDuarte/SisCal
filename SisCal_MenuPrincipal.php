@@ -24,8 +24,10 @@
                     	<a>Carga<b>▼</b></a>
                         <ul>
                         	<hr>
-                            <li onClick="Enviar('SisCal02_01Carga.php');" id="b1" >   
+                            <li onClick="Enviar('SisCal02_01Carga.php');">   
                             	<a>Carga</a></li>
+                            <li onClick="Enviar('SisCal02_01CargaT.php');" >   
+                            	<a>Carga Neteado</a></li>
 							<hr>							
                         </ul>
                 	</li>

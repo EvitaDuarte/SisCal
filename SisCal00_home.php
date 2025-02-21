@@ -26,7 +26,7 @@
 
             <div class="container">
                 <div class="img">
-                    <img src="assets/img/sesion_background_gd4.svg">
+                    <img src="assets/img/propuesta-grafica-3.png"> <!-- sesion_background_gd4.svg -->
                 </div>
                 <div class="login-content">
                     <form name="form1" id="form1" method="post" action="back/login_.php" enctype="application/x-www-form-urlencoded">
