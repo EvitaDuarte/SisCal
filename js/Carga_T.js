@@ -180,11 +180,8 @@ async function procesarXlsx(arrayBuffer, cOpc) {
 	    datos		= null;
 	    console.log ("horizontal",resultado)
 	    
-
-
 	    actualizarPaso("Completando Meses");await esperarFrame(); 
 	    s4CompletaMeses(resultado); // resultado se pasa por referencia
-	    
 
 	    // Ordenamos el arreglo por la propiedad 'clave'
 	    actualizarPaso("Ordenando");await esperarFrame(); 
