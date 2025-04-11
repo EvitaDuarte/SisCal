@@ -16,14 +16,11 @@ var gForma	  	 = "";
 var cPag 	  	 = "-1";				// Inicialización páginado servidor
 var funPagina 	 = ""					// Función que tendrá que ejecutar nextpage
 var dHoy	  	 = ""
-var pagCta	  	 = "";					// Guarda la cuenta Bancaria para el paginado
 var lTurno	  	 = false;
-var lOkCheque 	 = 0;					// Error en los rangos de cheque
-var gLongChe  	 = 8;
-var gResultLines = [];					// Arreglo global g
-var gOfcCtasInt	 = "";					// 
-var gCtasUrs	 = "";
-var gRepo		 = 0;
+var gAnio		 = "";
+var gLoader		 = "";
+var gPositivos	 = [];
+var gNegativos	 = [];
 
 window.onload = function () {		// Función que se ejecuta al cargar la página HTML que invoca a Consultas.js
 	// Se obtiene el nombre del archivo que lo invoca
@@ -100,6 +97,7 @@ const impoXls = () =>{
 		break;
 		// _____________________________
 		case "XlsSiga":
+			gLoader = document.getElementById("loader");
 			document.getElementById('ArchivoCarga_file').value = "";
 			document.getElementById("input_text").textContent = "Seleccione Archivo de SIGA";
 			archivoLayOut(cOpc,"Calendario");
@@ -126,8 +124,8 @@ async function archivoLayOut(cOpc,cTit){	// Solicita arcXlsSigahivo de layOut
 					if (respuesta){
 						const reader  = new FileReader();
 						reader.onload = async function (e) {
-						    actualizarPaso("Cargando");
-							await esperarFrame(); 
+							document.getElementById('loader-container').style.display = 'flex';
+						    actualizarPaso("Cargando");await esperarFrame(); 
 							const arrayBuffer  = e.target.result;
 							if (cOpc==="XlsSiga"){
 								 procesarXlsx(arrayBuffer, cOpc);
@@ -150,192 +148,69 @@ async function archivoLayOut(cOpc,cTit){	// Solicita arcXlsSigahivo de layOut
 // ________________________________________________________________________________
 async function procesarXlsx(arrayBuffer, cOpc) {
     // Usamos la librería xlsx.mini.min.js para leer el archivo binario
-    actualizarPaso("XLS");
-	await esperarFrame(); 
+    actualizarPaso("Cargando XLS");await esperarFrame(); 
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-
+	actualizarPaso("Hoja XLS");await esperarFrame();
     // Acceder a la primera hoja del archivo XLSX
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
-    // Convertir la hoja de cálculo a formato JSON
-    //const jsonData = XLSX.utils.sheet_to_json(sheet);
-    actualizarPaso("Convirtiendo");
-	await esperarFrame(); 
-	jsonData = XLSX.utils.sheet_to_json(sheet, { header: ['PERIOD_NAME','ESTRUCTURA', 'MONTO'], defval: null });
-
-	datos = [];
     if (cOpc === "XlsSiga") {
-	    actualizarPaso("Filtrando");
-		await esperarFrame(); 
-		jsonData.forEach(estru => {
-  			cClave = estru.ESTRUCTURA;
-			if (cClave!=="ESTRUCTURA" && cClave!==null){
-	  			if (cClave.substr(42,1)!=1){ // quitar capitulo mil
-	  				cMes = buscaMes(estru.PERIOD_NAME);
-	  				datos.push({clave:cClave,mes:cMes,importe:estru.MONTO,estatus:"N"})
-	  			}
-	  		}
-		});
+		datos = [];
+	    // Convertir la hoja de cálculo a formato JSON
+	    //const jsonData = XLSX.utils.sheet_to_json(sheet);
+	    actualizarPaso("Convirtiendo");await esperarFrame(); 
+		jsonData = XLSX.utils.sheet_to_json(sheet, { header: ['PERIOD_NAME','ESTRUCTURA', 'MONTO'], defval: null });
+
+	    actualizarPaso("Filtrando Cap 1000");await esperarFrame(); 
+	    datos = s2Filtra1000(jsonData);
 		jsonData = null; // liberar memoria
- 		console.log("Datos",datos);
+ 		//console.log("Datos",datos);
+
 		// Creamos un objeto donde guardaremos la información organizada por clave
 	    let resultado = [];
-
 	    // Iteramos sobre los datos
-	    actualizarPaso("Horizontal");
-		await esperarFrame(); 
-	    datos.forEach(item => {
-	        // Buscamos si ya existe la clave en el resultado
-	        let claveExistente = resultado.find(r => r.clave === item.clave);
+	    actualizarPaso("Vertical a Horizontal");await esperarFrame(); 
+	    resultado = s3Horizontal(datos);
+	    datos 	  = null;
+	    //console.log ("horizontal",resultado);
 
-	        if (!claveExistente) {
-	            // Si la clave no existe, la agregamos con la estructura inicial
-	            claveExistente = { clave: item.clave };
-	            resultado.push(claveExistente);
-	        }
+	    actualizarPaso("Completando Meses");await esperarFrame(); 
+	    s4CompletaMeses(resultado); // resultado se pasa por referencia
 
-	        // Agregamos el importe al mes correspondiente
-	        const mes = `importe_${item.mes.padStart(2, '0')}`;
-	        /* if (!claveExistente[mes]) {
-	            claveExistente[mes] = item.importe;  // Si el mes no existe, lo agregamos
-	        } else {
-	            claveExistente[mes] += item.importe;  // Si ya existe, sumamos el importe
-	        } */
-	        if (!claveExistente[mes]) {
-    			claveExistente[mes] = Math.round(item.importe * 100) / 100;  // Redondea a 2 decimales
-			} else {
-    			claveExistente[mes] = Math.round((parseFloat(claveExistente[mes]) + item.importe) * 100) / 100;  // Redondea después de sumar
-			}
-	    });
-	    console.log ("horizontal",resultado)
-	    datos = null;
-	    actualizarPaso("Completando");
-		await esperarFrame(); 
-	    // Ahora llenamos los huecos de los meses que no existen
-	    resultado.forEach(item => {
-	        // Iteramos por los meses de enero a diciembre
-	        for (let mes = 1; mes <= 12; mes++) {
-	            const mesFormateado = `importe_${String(mes).padStart(2, '0')}`;
-	            if (!item[mesFormateado]) {
-	                item[mesFormateado] = 0.00;  // Asignamos null o 0 si lo prefieres
-	            }
-	        }
-	    });
 	    // Ordenamos el arreglo por la propiedad 'clave'
-	    actualizarPaso("Ordenando");
-		await esperarFrame(); 
-		resultado.sort((a, b) => {
-		    if (a.clave < b.clave) {
-		        return -1;
-		    }
-		    if (a.clave > b.clave) {
-		        return 1;
-		    }
-		    return 0;
-		});
-	    actualizarPaso("Negativos Positivos");
-		await esperarFrame(); 
-		resultado1 = resultado.filter(objeto => {
-			// Extraer los valores de los importes de enero a diciembre
-			const importes = Object.values(objeto).slice(1); // Omite la clave
+	    actualizarPaso("Ordenando");await esperarFrame(); 
+	    s5Ordena(resultado);
 
-			// Verificar si todos los importes son positivos
-			const todosPositivos = importes.every(importe => importe >= 0);
 
-			// Calcular la suma de los importes
-			const suma = importes.reduce((acc, importe) => acc + importe, 0);
 
-			// Eliminar objetos si todos los importes son positivos o si la suma es negativa
-			return !(todosPositivos || suma <= 0);
-		});
-		console.clear();console.log("Sin negativos",resultado1);
+	    gPositivos = []; gNegativos = [];
+	    actualizarPaso("Quitando Positivos y Ceros");await esperarFrame(); 
+	    resultado1 = s7QuitaPositivos(resultado);
+	    resultado  = null;
+
+		//console.clear();
+		//console.log("Sin negativos",resultado1);
+
+		actualizarPaso("Copiando");await esperarFrame(); 
 		resultado2 = JSON.parse(JSON.stringify(resultado1));
-		resultado = null;
-		console.log("Copia Resultados",resultado2);
-	    actualizarPaso("Poblando");
-		await esperarFrame(); 
-		procesarXlsSiga(resultado2);
+		//console.log("Copia Resultados",resultado2);
 
-		actualizarPaso("Quitando negativos");
-		await esperarFrame();
-		aRes = procesarResultados(resultado2);
-		console.log(aRes)
-		actualizarPaso("Generando XLS");
-		await esperarFrame();
-		// Crear un nuevo libro de Excel
-		const wb = XLSX.utils.book_new();
-		console.log("Antes de XLS",resultado1);
-		// Convertir el arreglo de objetos a una matriz de matrices
-		//const resultado1Array = resultado1.map(item => Object.values(item));	
-		// Se debe especificar cada columna en el orden deseado	
-		const resultado1Array = resultado1.map(item => [
-		    item.clave,
-		    item.importe_01,
-		    item.importe_02,
-		    item.importe_03,
-		    item.importe_04,
-		    item.importe_05,
-		    item.importe_06,
-		    item.importe_07,
-		    item.importe_08,
-		    item.importe_09,
-		    item.importe_10,
-		    item.importe_11,
-		    item.importe_12
-		]); resultado1 = null;
-		const resultado2Array = aRes.resultado1.map(item => [
-		    item.clave,
-		    item.importe_01,
-		    item.importe_02,
-		    item.importe_03,
-		    item.importe_04,
-		    item.importe_05,
-		    item.importe_06,
-		    item.importe_07,
-		    item.importe_08,
-		    item.importe_09,
-		    item.importe_10,
-		    item.importe_11,
-		    item.importe_12
-		]);	resultado2 = null;
-		const resultado3Array = aRes.AmpRedu.map(item => Object.values(item));		aRes	   = null;
-		// Añadir las hojas
-		XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resultado1Array), 'Resultados 1');
-		XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resultado2Array), 'Resultados 2');
-		XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resultado3Array), 'AmpRedu');
-		actualizarPaso("FIN");
-		await esperarFrame();
-		// Generar el archivo Excel y descargarlo
-		XLSX.writeFile(wb, 'resultados.xlsx');
-		console.log("Despues XLS",resultado1Array);
+	    actualizarPaso("Poblando");await esperarFrame(); 
+		s8poblarTabla(resultado2); // procesarXlsSiga(resultado2);
+
+		actualizarPaso("Quitando Saldos negativos");await esperarFrame();
+		aRes = s9procesarResultados(resultado2);
+		//console.log(aRes)
+
+		//console.log("Antes de XLS",resultado1);
+		actualizarPaso("Generando XLS");await esperarFrame();
+		s10GeneraXls(aRes,resultado1,resultado2);
+
+		actualizarPaso("FIN");await esperarFrame();
+		document.getElementById("idImportar").value = "";
+		document.getElementById('loader-container').style.display = 'none';
 	}
-	/*
-    // Aquí puedes manipular los datos como desees, dependiendo de cOpc
-    if (cOpc === "XlsSiga") {
-        filteredData = jsonData.map(row => {
-            return {
-                clave: row.ESTRUCTURA,
-                periodo: row.PERIOD_NAME,
-                importe: row.MONTO
-            };
-        });
-        
-
-		filteredData.forEach(estru => {
-  			cClave = estru.clave
-  			console.log(objeto.a1, objeto.a2, objeto.a3);
-		});
-        cleanedData = filteredData.map(row => {
-            return { ...row };  // Esto copia solo las propiedades explícitas
-        });
-        // Después de procesar los datos
-		filteredData = null; jsonData = null;
-        procesarXlsSiga(cleanedData);
-    } else if (cOpc === "Respuesta") {
-        procesarRespuesta(jsonData);
-    }
-    */
 }
 // ________________________________________________________________________________
 function procesarXlsSiga(resultado) {
@@ -348,8 +223,214 @@ function procesarXlsSiga(resultado) {
 	poblarTabla(resultado);
 }
 // ________________________________________________________________________________
+// ________________________________________________________________________________
+const buscaMes = (cPeriodo) =>{
+	const meses = { "ENE": "01", "FEB": "02",  "MAR": "03",  "ABR": "04", 
+	    			"MAY": "05", "JUN": "06",  "JUL": "07",  "AGO": "08",
+	    			"SEP": "09", "OCT": "10",  "NOV": "11",  "DIC": "12"
+	};
+
+	const cP = cPeriodo.substr(0, 3);
+	return meses[cP] || "--"; 
+}
+// ________________________________________________________________________________
+const buscaPeriodo = (cMes) =>{
+	const periodo = {
+	    "01": "ENE", "02": "FEB", "03": "MAR", "04": "ABR", "05": "MAY",
+	    "06": "JUN", "07": "JUL", "08": "AGO", "09": "SEP", "10": "OCT",
+	    "11": "NOV", "12": "DIC"
+	};
+	return periodo[cMes] || "--";
+}
+// ________________________________________________________________________________
+function actualizarPaso(mensaje) {
+	loader.innerHTML = mensaje;
+    document.getElementById("idPasos").value = mensaje;
+    document.getElementById("idPasos").dispatchEvent(new Event('input')); // Para actualizar si es un textarea
+}
+// ________________________________________________________________________________
+function esperarFrame() {
+    return new Promise(resolve => requestAnimationFrame(resolve));
+}
+// ________________________________________________________________________________
+/*
+
+const completarMeses = (arr) => {
+	const meses = ['01', '02', '03', '04', '05', '06','07','08','09','10','11','12'];
+	//console.log(arr);
+	return arr.map(item => {
+		// Creamos un objeto con todos los posibles meses e inicializamos con 0
+		let nuevoItem = {
+			...item,
+			...meses.reduce((acc, mes) => {
+				if (!item[`importe_${mes}`]) {
+					acc[`importe_${mes}`] = 0;
+				}
+				return acc;
+			}, {})
+		};
+		return nuevoItem;
+	});
+}; */
+
+// ________________________________________________________________________________
+/*
+function s2 Filtra 1000(jsonData){
+	datos = [];
+	jsonData.forEach(estru => {
+		cClave = estru.ESTRUCTURA.toUpperCase();
+		if (cClave!=="ESTRUCTURA" && cClave!==null){
+			gAnio = estru.PERIOD_NAME.trim().slice(-4);
+  			if (cClave.substr(42,1)!=1){ // quitar capitulo mil
+  				cMes = buscaMes(estru.PERIOD_NAME);
+  				datos.push({clave:cClave,mes:cMes,importe:estru.MONTO,estatus:"N"})
+  			}
+  		}
+	});
+	return datos;
+}*/
+// ________________________________________________________________________________
+function s2Filtra1000(jsonData){
+    datos = [];
+    jsonData.forEach(estru => {
+
+        cClave = estru.ESTRUCTURA;
+        if (cClave!=null){
+        	cClave = cClave.toUpperCase();
+	        if (cClave !== "ESTRUCTURA") {
+	            // Obtener el valor de PERIOD_NAME
+	            let periodName = estru.PERIOD_NAME;
+
+	            // Verificar si el valor es un número (fecha serial de Excel)
+	            if (typeof periodName === 'number') {
+	                // Convertir el número de fecha serial de Excel a una fecha JavaScript
+	                let date = new Date((periodName - 25569 ) * 86400 * 1000);  
+	                //let date = new Date((periodName - 25569 - 1) * 86400 * 1000);
+					let utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+	                // Verificar si la fecha es válida
+	                if (!isNaN(utcDate.getTime())) {
+	                    // Si es una fecha válida, convertirla al formato deseado (mes-año, como ABR-2025)
+	                    const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+	                    let mes = meses[utcDate.getUTCMonth()]; // Usar el mes UTC
+	                    let anio = utcDate.getUTCFullYear();  // Usar el año UTC
+	                    periodName = `${mes.toUpperCase()}-${anio}`;
+	                }
+	            } else {
+	                // Si el valor es una cadena, no necesitamos hacer nada, solo lo limpiamos
+	                periodName = periodName.trim();
+	            }
+
+	            // Ahora que tenemos el periodo en el formato esperado (MMM-YYYY)
+	            gAnio = periodName.slice(-4);  // Obtener el año
+	            if (cClave.substr(42, 1) != 1) { // quitar capítulo mil
+	                cMes   = buscaMes(periodName);  // Asumiendo que esta función 'buscaMes' sigue funcionando correctamente
+	                nMonto = parseFloat(parseFloat(estru.MONTO).toFixed(2));
+	                datos.push({ clave: cClave, mes: cMes, importe: nMonto, estatus: "N" });
+	            }
+	        }
+	    }
+    });
+    return datos;
+}
+// ________________________________________________________________________________
+function s3Horizontal(datos){
+	let resultado = [];
+    datos.forEach(item => {
+        // Buscamos si ya existe la clave en el resultado
+        let claveExistente = resultado.find(r => r.clave === item.clave);
+
+        if (!claveExistente) {
+            // Si la clave no existe, la agregamos con la estructura inicial
+            claveExistente = { clave: item.clave };
+            resultado.push(claveExistente);
+        }
+
+        // Agregamos el importe al mes correspondiente
+        const mes = `importe_${item.mes.padStart(2, '0')}`;
+        if (!claveExistente[mes]) {
+			claveExistente[mes] = Math.round(item.importe * 100) / 100;  // Redondea a 2 decimales
+		} else {
+			claveExistente[mes] = Math.round((parseFloat(claveExistente[mes]) + item.importe) * 100) / 100;  // Redondea después de sumar
+		}
+    });
+    return resultado;
+}
+// ________________________________________________________________________________
+function s4CompletaMeses(resultado){
+    // Ahora llenamos los huecos de los meses que no existen
+    resultado.forEach(item => {
+        // Iteramos por los meses de enero a diciembre
+        for (let mes = 1; mes <= 12; mes++) {
+            const mesFormateado = `importe_${String(mes).padStart(2, '0')}`;
+            if (!item[mesFormateado]) {
+                item[mesFormateado] = 0.00;  // Asignamos null o 0 si lo prefieres
+            }
+        }
+    });
+}
+// ________________________________________________________________________________
+function s5Ordena(resultado){
+	resultado.sort((a, b) => {
+	    if (a.clave < b.clave) {
+	        return -1;
+	    }
+	    if (a.clave > b.clave) {
+	        return 1;
+	    }
+	    return 0;
+	});
+}
+// ________________________________________________________________________________
+/*function s7QuitaPositivos(resultado){
+	resultado1 = resultado.filter(objeto => {
+		// Extraer los valores de los importes de enero a diciembre
+		const importes = Object.values(objeto).slice(1); // Omite la clave
+
+		// Verificar si todos los importes son positivos
+		const todosPositivos = importes.every(importe => importe >= 0);
+
+		// Calcular la suma de los importes
+		const suma = importes.reduce((acc, importe) => acc + importe, 0);
+
+		// Eliminar objetos si todos los importes son positivos o si la suma es negativa
+		return !(todosPositivos || suma <= 0);
+	});
+	return resultado1;
+}*/
+// ________________________________________________________________________________
+function s7QuitaPositivos(resultado) {
+    // Filtramos los objetos y los clasificamos en positivos, negativos y el resto
+    const resultado1 = resultado.filter(objeto => {
+        // Extraer los valores de los importes de enero a diciembre
+        const importes = Object.values(objeto).slice(1); // Omitir la clave
+
+        // Verificar si todos los importes son positivos
+        const todosPositivos = importes.every(importe => importe >= 0);
+
+        // Calcular la suma de los importes
+        const suma = importes.reduce((acc, importe) => acc + importe, 0);
+
+        // Si todos los importes son positivos, agregar al arreglo 'positivos'
+        if (todosPositivos) {
+            gPositivos.push(objeto);
+            return false;  // No incluir este objeto en resultado1
+        }
+        // Si la suma de los importes es <= 0, agregar al arreglo 'negativos'
+        else if (suma <= 0) {
+            gNegativos.push(objeto);
+            return false;  // No incluir este objeto en resultado1
+        }
+
+        // Si no cumple ninguna de las condiciones, incluirlo en resultado1
+        return true;
+    });
+
+    // Regresar el arreglo resultado1 con los elementos filtrados
+    return resultado1;
+}
+// ________________________________________________________________________________
 // Función para poblar la tabla con los datos del arreglo
-function poblarTabla(resultado) {
+function s8poblarTabla(resultado) {
 	const cuerpoTabla = document.getElementById("cuerpo");
 	// Limpiar el cuerpo de la tabla antes de agregar nuevas filas
     cuerpoTabla.innerHTML = "";  // Esto borra todo el contenido del cuerpo de la tabla
@@ -377,47 +458,7 @@ function poblarTabla(resultado) {
     });
 }
 // ________________________________________________________________________________
-const buscaMes = (cPeriodo) =>{
-	const meses = { "ENE": "01", "FEB": "02",  "MAR": "03",  "ABR": "04", 
-	    			"MAY": "05", "JUN": "06",  "JUL": "07",  "AGO": "08",
-	    			"SEP": "09", "OCT": "10",  "NOV": "11",  "DIC": "12"
-	};
-
-	const cP = cPeriodo.substr(0, 3);
-	return meses[cP] || "--"; 
-}
-// ________________________________________________________________________________
-function actualizarPaso(mensaje) {
-    document.getElementById("idPasos").value = mensaje;
-    document.getElementById("idPasos").dispatchEvent(new Event('input')); // Para actualizar si es un textarea
-}
-// ________________________________________________________________________________
-function esperarFrame() {
-    return new Promise(resolve => requestAnimationFrame(resolve));
-}
-// ________________________________________________________________________________
-/*
-
-const completarMeses = (arr) => {
-	const meses = ['01', '02', '03', '04', '05', '06','07','08','09','10','11','12'];
-	console.log(arr);
-	return arr.map(item => {
-		// Creamos un objeto con todos los posibles meses e inicializamos con 0
-		let nuevoItem = {
-			...item,
-			...meses.reduce((acc, mes) => {
-				if (!item[`importe_${mes}`]) {
-					acc[`importe_${mes}`] = 0;
-				}
-				return acc;
-			}, {})
-		};
-		return nuevoItem;
-	});
-}; */
-
-// ________________________________________________________________________________
-function procesarResultados(resultado1) {
+function s9procesarResultados(resultado1) {
     const AmpRedu = []; // Este es el arreglo donde se guardarán las ampliaciones y reducciones.
 
     // Recorrer cada renglón en el arreglo resultado1
@@ -438,7 +479,7 @@ function procesarResultados(resultado1) {
                 AmpRedu.push({
                     clave	: renglon.clave,
                     tipo	: 'A',
-                    [mes]	: saldoRestante,
+                    importe	: saldoRestante,
                     mes		: mes.substr(8,2)
                 });
 
@@ -455,7 +496,7 @@ function procesarResultados(resultado1) {
                         AmpRedu.push({
                             clave			: renglon.clave,
                             tipo			: 'R',
-                            [mesAnterior]	: montoCompensado,
+                            importe			: montoCompensado,
                             mes				: mesAnterior.substr(8,2)
                         });
 
@@ -482,7 +523,7 @@ function procesarResultados(resultado1) {
                             AmpRedu.push({
                                 clave			: renglon.clave,
                                 tipo			: 'R',
-                                [mesPosterior]	: montoCompensado,
+                                importe			: montoCompensado,
                                 mes				: mesPosterior.substr(8,2)
                             });
 
@@ -510,4 +551,130 @@ function procesarResultados(resultado1) {
     return { resultado1, AmpRedu };
 }
 // ________________________________________________________________________________
+function s10GeneraXls(aRes,resultado1,resultado2){
+	// Crear un nuevo libro de Excel
+	const wb = XLSX.utils.book_new();
+
+
+	// Convertir el arreglo de objetos a una matriz de matrices
+	//const resultado1Array = resultado1.map(item => Object.values(item));	
+	// Se debe especificar cada columna en el orden deseado	
+	const cabeza = ["ESTRUCTURA","ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+	const resultado1Array = [
+		cabeza,
+		...resultado1.map(item => {
+			return[
+			    item.clave,
+			    item.importe_01,
+			    item.importe_02,
+			    item.importe_03,
+			    item.importe_04,
+			    item.importe_05,
+			    item.importe_06,
+			    item.importe_07,
+			    item.importe_08,
+			    item.importe_09,
+			    item.importe_10,
+			    item.importe_11,
+			    item.importe_12
+			];
+		})
+	];
+	resultado1 = null;
+
+	const resultado2Array = [
+		cabeza,
+		...aRes.resultado1.map(item => {
+			return [
+			    item.clave,
+			    item.importe_01,
+			    item.importe_02,
+			    item.importe_03,
+			    item.importe_04,
+			    item.importe_05,
+			    item.importe_06,
+			    item.importe_07,
+			    item.importe_08,
+			    item.importe_09,
+			    item.importe_10,
+			    item.importe_11,
+			    item.importe_12
+			];
+		})
+	];	
+	resultado2 = null;
+
+	const positivosArray = [
+		cabeza,
+		...gPositivos.map(item => {
+			return [
+			    item.clave,
+			    item.importe_01,
+			    item.importe_02,
+			    item.importe_03,
+			    item.importe_04,
+			    item.importe_05,
+			    item.importe_06,
+			    item.importe_07,
+			    item.importe_08,
+			    item.importe_09,
+			    item.importe_10,
+			    item.importe_11,
+			    item.importe_12
+			];
+		})
+	];
+
+	const negativosArray = [
+		cabeza,
+		...gNegativos.map(item => {
+			return [
+			    item.clave,
+			    item.importe_01,
+			    item.importe_02,
+			    item.importe_03,
+			    item.importe_04,
+			    item.importe_05,
+			    item.importe_06,
+			    item.importe_07,
+			    item.importe_08,
+			    item.importe_09,
+			    item.importe_10,
+			    item.importe_11,
+			    item.importe_12
+			];
+		})
+	];
+	console.log("Ampredu",aRes.AmpRedu)
+	// const resultado3Array = aRes.AmpRedu.map(item => Object.values(item)); aRes	   = null;
+	const encabezado = ["CALENDARIO", "INE", "UR", "CTA", "SCTA", "AI", "PP", "SPG", "PY", "PTDA", "AMPLIACION", "REDUCCION"];
+	const resultado3Array = [
+		encabezado,  // Insertamos el encabezado como el primer renglón
+		...aRes.AmpRedu.map(item => {
+		    // Desglosar la clave
+		    const clavePartes = item.clave.split("-");
+		    
+		    // Obtener el mes correspondiente
+		    const mesNombre =buscaPeriodo(item.mes);
+		    
+		    // Construir el array de resultados con valores según el tipo y mes
+		    return [
+		        mesNombre+"-"+gAnio,   // El mes en formato abreviado
+		        ...clavePartes.slice(0, 9),  // Partes de la clave
+		        item.tipo === "A" ? item.importe : 0.00,  // Importe según tipo
+		        item.tipo === "R" ? item.importe : 0.00   // Importe según tipo
+		    ];
+		})
+	]; aRes = null;
+
+	// Añadir las hojas
+	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resultado1Array), 'Resultados 1');
+	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resultado2Array), 'Resultados 2');
+	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(positivosArray), 'Positivos');
+	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(negativosArray), 'Negativos');
+	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resultado3Array), 'AmpRedu');
+	// Generar el archivo Excel y descargarlo
+	XLSX.writeFile(wb, 'resultados.xlsx');
+	console.log("Despues XLS",resultado1Array);
+}
 // ________________________________________________________________________________

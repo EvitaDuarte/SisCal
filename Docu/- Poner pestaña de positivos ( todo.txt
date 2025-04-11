@@ -1,4 +1,4 @@
 - Poner pestaña de positivos ( todos positivos de enero a diciembre )
-- Poner pestaña de negativos ( suma de enero a diciembre en negativo )
+- Poner pestaña de negativos ( suma de enero a diciembre en negativo <=0 )
 - Poner pestaña donde la suma de enero a diciembre sea menor a 1 peso 
 - 

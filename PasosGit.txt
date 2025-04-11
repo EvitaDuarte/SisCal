@@ -1,0 +1,6 @@
+git remote -v	// Que proyecto activo esta enlazado VSCode con GitHub
+git remote set-url origin https://github.com/EvitaDuarte/SisCal // Cambiar al proyecto donde se realizará el commit x si no es el correcto
+git status	// Sirve para saber las actualizaciones pendientes
+git add .	// Preparar todos los cambios realizados
+git commit -m "Mensaje descriptivo de los cambios"
+git push origin main  // Sincroniza los cambios en la rama main

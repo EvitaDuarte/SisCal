@@ -107,6 +107,9 @@
                     </div>
                 </section>
             </div>
+            <div id="loader-container" style="display:none;">
+                <div id="loader">Procesando......</div>
+            </div>
             <dialog id="cajaMensaje" class="dialogo">
                 <div class="dialogo_header">
                     <div id="dialogo_close">X</div>
@@ -153,7 +156,7 @@
         </form>
         <script src="js/cerrarSesion_.js"></script>
         <script src="js/rutinas_.js"></script>
-        <script src="js/Carga_.js"></script>
+        <script src="js/Carga_.js?ver=4.1"></script>
         <script src="assets/js/xlsx.mini.min.js"></script>
     </body>
 </html>
